@@ -3,7 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
 
 st.title("Coletor de Exercícios")
 st.write("Ajuste os códigos inicial e final dos exercícios e clique em 'Iniciar Coleta'.")
@@ -64,31 +63,40 @@ if st.button("Iniciar Coleta"):
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(coletar_exercicio, codigo): codigo for codigo in range(codigo_inicial, codigo_final + 1)}
 
-        # Acompanha o progresso em tempo real, mas sem atualizar o log na tela
         for future in as_completed(futures):
             resultado = future.result()
             if resultado:
                 exercicios.append(resultado)
 
+    # Ordena pelo campo "codigo"
+    exercicios = sorted(exercicios, key=lambda x: x["codigo"])
+
     log_status("Coleta de todos os exercícios concluída.")
     log_status(f"Total de exercícios coletados: {len(exercicios)}")
 
-    log_status("Salvando dados em exercicios_completo.json...")
+    # Salva em arquivo local
     try:
         with open("exercicios_completo.json", "w", encoding="utf-8") as f:
             json.dump(exercicios, f, ensure_ascii=False, indent=2)
         log_status("Arquivo **exercicios_completo.json** salvo com sucesso!")
-
     except Exception as e:
         log_status(f"Erro ao salvar o arquivo JSON: {e}")
 
-    # Exibe o log completo no final, dentro do expansor
+    # Exibe o log completo no final
     with st.expander("Log de Status", expanded=False):
         st.info("\n".join(status_messages))
 
-    # Exibe a mensagem final de sucesso ou erro e o visualizador de JSON
     if exercicios:
-        st.success("Processo concluído! O arquivo foi salvo.")
+        st.success("Processo concluído! O arquivo foi salvo e está disponível para download.")
+
+        # Botão de download do JSON
+        st.download_button(
+            label="📥 Baixar JSON",
+            data=json.dumps(exercicios, ensure_ascii=False, indent=2),
+            file_name="exercicios_completo.json",
+            mime="application/json",
+        )
+
         with st.expander("Visualizar JSON Exportado"):
             st.json(exercicios)
     else:
